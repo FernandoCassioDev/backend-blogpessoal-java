@@ -19,6 +19,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.blogpessoal.blogpessoaljava.model.Postagem;
 import com.blogpessoal.blogpessoaljava.repository.PostagemRepository;
+import com.blogpessoal.blogpessoaljava.repository.TemaRepository;
 
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -29,6 +30,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 public class PostagemController {
   @Autowired
   private PostagemRepository postagemRepository;
+
+  @Autowired
+  private TemaRepository temaRepository;
 
   @GetMapping
   public ResponseEntity<List<Postagem>> getAll() {
@@ -48,22 +52,31 @@ public class PostagemController {
 
   @PostMapping
   public ResponseEntity<Postagem> post(@Valid @RequestBody Postagem postagem) {
-    return ResponseEntity.status(HttpStatus.CREATED).body(postagemRepository.save(postagem));
+    if (temaRepository.existsById(postagem.getTema().getId()))
+      return ResponseEntity.status(HttpStatus.CREATED).body(postagemRepository.save(postagem));
+
+    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tema não existe", null);
   }
 
   @PutMapping
   public ResponseEntity<Postagem> put(@Valid @RequestBody Postagem postagem) {
-    return postagemRepository.findById(postagem.getId())
-        .map(resposta -> ResponseEntity.status(HttpStatus.OK).body(postagemRepository.save(postagem)))
-        .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+    if (postagemRepository.existsById(postagem.getId())) {
+
+      if (temaRepository.existsById(postagem.getTema().getId()))
+        return ResponseEntity.status(HttpStatus.OK).body(postagemRepository.save(postagem));
+
+      throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tema não existe!");
+    }
+
+    return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
   }
 
   @ResponseStatus(HttpStatus.NO_CONTENT)
   @DeleteMapping("/{id}")
-  public void delete(@PathVariable Long id){
+  public void delete(@PathVariable Long id) {
     Optional<Postagem> postagem = postagemRepository.findById(id);
 
-    if(postagem.isEmpty())
+    if (postagem.isEmpty())
       throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Postagem não encontrada!");
 
     postagemRepository.deleteById(id);
